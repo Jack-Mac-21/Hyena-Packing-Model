@@ -74,41 +74,13 @@ to lion-move
 end
 
 to eat ;All eat procedures called for turtls
-  if breed = lions and preference-threshold? [
-    lion-eat-procedure
-  ]
-  if breed = lions and not preference-threshold? [ lion-eat-procedure-2 ]
+  if breed = lions [ lion-eat-procedure ]
   if breed = hyenas [ hyena-eat-procedure ]
   if breed = impalas [ impala-eat-procedure ]
   if breed = antelopes [ antelope-eat-procedure ]
 end
 
-to lion-eat-procedure ;Lions will prioritize impalas, but will eat a hyena given the chance
-  let pack-count-number (count hyenas in-radius pack-radius) ;number of hyenas in the area
-  if-else any? impalas-here
-  [
-    let target one-of impalas-here
-    ask target [ die ]
-    set energy (energy + lion-energy-gain-from-eating)
-  ]
-  [if any? hyenas-here and (pack-count-number < 20)
-    [
-      let target one-of hyenas-here
-      ask target [ die ]
-      set energy (energy + lion-energy-gain-from-eating)
-    ]
-  ]
-
-  if energy < preference-threshold [
-    if any? antelopes-here [
-      let target one-of antelopes-here
-      ask target [ die ]
-      set energy (energy + lion-energy-gain-from-eating)
-    ]
-  ]
-end
-
-to lion-eat-procedure-2 ;This eat procedure does not use preference based on hunger
+to lion-eat-procedure ;
   let pack-count-number (count hyenas in-radius pack-radius) ;number of hyenas in the area
   let target 0
 
@@ -354,8 +326,8 @@ true
 false
 "" ""
 PENS
-"_1_1_1_1_1_1_1_1_1_1_1_1_1_1" 1.0 0 -2674135 true "" "plot lion-energy"
-"_1_1_1_1_1_1_1_1_1_1_1_1_1_1" 1.0 0 -8431303 true "" "plot hyena-energy"
+"_1_1_1_1_1_1_1_1_1_1_1_1_1" 1.0 0 -2674135 true "" "plot lion-energy"
+"_1_1_1_1_1_1_1_1_1_1_1_1_1" 1.0 0 -8431303 true "" "plot hyena-energy"
 "pen-2" 1.0 0 -1184463 true "" "plot antelope-energy"
 
 SLIDER
@@ -448,7 +420,7 @@ lion-energy-gain-from-eating
 lion-energy-gain-from-eating
 0
 250
-100.0
+120.0
 10
 1
 NIL
@@ -493,7 +465,7 @@ lion-reproduction-threshold
 lion-reproduction-threshold
 0
 200
-200.0
+150.0
 1
 1
 NIL
@@ -540,7 +512,7 @@ lion-movement-cost
 lion-movement-cost
 0
 25
-17.0
+15.0
 1
 1
 NIL
@@ -585,7 +557,7 @@ random-hyena-movement-probability
 random-hyena-movement-probability
 0
 100
-0.0
+100.0
 1
 1
 NIL
@@ -600,7 +572,7 @@ pack-radius
 pack-radius
 0
 30
-7.0
+0.0
 1
 1
 NIL
@@ -652,17 +624,6 @@ Impala Parameters (Grey)\nAntelope Parameters (White)
 12
 0.0
 1
-
-SWITCH
-18
-687
-197
-720
-preference-threshold?
-preference-threshold?
-1
-1
--1000
 
 @#$#@#$#@
 ## Model changes from previous

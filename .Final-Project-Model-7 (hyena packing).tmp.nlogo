@@ -1,14 +1,14 @@
 globals [
   lion-energy
   hyena-energy
+  impala-energy
   antelope-energy
-  rabbit-energy
 ]
 
 breed [ lions lion ]
 breed [ hyenas hyena ]
-breed [antelopes antelope ]
-breed [ rabbits rabbit ]
+breed [impalas impala ]
+breed [ antelopes antelope ]
 
 patches-own [ grass-amount ] ;; patches will have grass in a very similar way to the wolf-sheep model
 
@@ -17,6 +17,9 @@ turtles-own [
   preference-number
 ]
 
+hyenas-own [
+  pack-count
+]
 
 to setup
   clear-all
@@ -45,9 +48,9 @@ to move
   rt random 90
   lt random 90
   if breed = lions [set energy (energy - lion-movement-cost)]
-  if breed = hyenas [set energy (energy - hyena-movement-cost)]
-  if breed = rabbits [set energy (energy - movement-cost)]
+  if breed = hyenas [hyena-move] ; so hyenas do not use two move functions
   if breed = antelopes [set energy (energy - movement-cost)]
+  if breed = impalas [set energy (energy - movement-cost)]
   forward 1
 end
 
@@ -71,20 +74,25 @@ to lion-move
 end
 
 to eat ;All eat procedures called for turtls
-  if breed = lions [ lion-eat-procedure ]
+  if breed = lions and preference-threshold? [
+    lion-eat-procedure
+  ]
+  if breed = lions and not preference-threshold? [ lion-eat-procedure-2 ]
   if breed = hyenas [ hyena-eat-procedure ]
+  if breed = impalas [ impala-eat-procedure ]
   if breed = antelopes [ antelope-eat-procedure ]
-  if breed = rabbits [ rabbit-eat-procedure ]
 end
 
-to lion-eat-procedure ;Lions will prioritize antelopes, but will eat a hyena given the chance
- if-else any? antelopes-here
+to lion-eat-procedure ;Lions will prioritize impalas, but will eat a hyena given the chance
+  let pack-count-number (count hyenas in-radius pack-radius) ;number of hyenas in the area
+
+  if-else any? impalas-here
   [
-    let target one-of antelopes-here
+    let target one-of impalas-here
     ask target [ die ]
     set energy (energy + lion-energy-gain-from-eating)
   ]
-  [if any? hyenas-here
+  [if any? hyenas-here and (pack-count-number < 20)
     [
       let target one-of hyenas-here
       ask target [ die ]
@@ -92,39 +100,69 @@ to lion-eat-procedure ;Lions will prioritize antelopes, but will eat a hyena giv
     ]
   ]
 
- ; if energy < preference-threshold [
-  ;  if any? rabbits-here [
-  ;    let target one-of rabbits-here
-     ; ask target [ die ]
-   ;   set energy (energy + lion-energy-gain-from-eating)
-    ;]
-  ;]
-end
-
-to hyena-eat-procedure ;hyenas eat rabbits now, but will eat antelopes if they are hungry enough
-  let pack-count (count hyenas in-radius pack-radius)
-  if any? rabbits-here [
-    let target one-of rabbits-here
-    ask target [ die ]
-    set energy (energy + hyena-energy-gain-from-eating)
-  ]
   if energy < preference-threshold [
     if any? antelopes-here [
       let target one-of antelopes-here
       ask target [ die ]
+      set energy (energy + lion-energy-gain-from-eating)
+    ]
+  ]
+end
+
+to lion-eat-procedure-2 ;This eat procedure does not use preference based on hunger
+  let pack-count-number (count hyenas in-radius pack-radius) ;number of hyenas in the area
+  let target 0
+
+  if any? antelopes-here [
+    set target one-of antelopes-here
+  ]
+
+  if-else any? impalas-here
+  [
+    set target one-of impalas-here
+
+  ]
+  [if any? hyenas-here and (pack-count-number < 20)
+    [
+      set target one-of hyenas-here
+    ]
+  ]
+  if target != 0 [
+    ask target [ die ]
+    set energy (energy + lion-energy-gain-from-eating)
+  ]
+end
+
+to hyena-eat-procedure ;hyenas eat antelopes now, but will eat impalas if they are hungry enough
+  set pack-count (count hyenas in-radius pack-radius)
+  if any? antelopes-here [
+    let target one-of antelopes-here
+    ask target [ die ]
+    set energy (energy + hyena-energy-gain-from-eating)
+  ]
+  if energy < preference-threshold [
+    if any? impalas-here [
+      let target one-of impalas-here
+      ask target [ die ]
       set energy (energy + hyena-energy-gain-from-eating)
     ]
   ]
-  if pack-count > 5 [ ;; Hyenas will eat antelope if they have a large enough pack size.
-    if any? antelopes-here [
-      let target one-of antelopes-here
+  ;if pack-count > 5 [ ;; Hyenas will eat impala if they have a large enough pack size.
+   ; if any? impalas-here [
+    ;  let target one-of impalas-here
+     ; ask target [ die ]
+      ;set energy (energy + hyena-energy-gain-from-eating)
+    ;]
+  if pack-count > 20 [
+    if any? lions-here [
+      let target one-of lions-here
       ask target [ die ]
       set energy (energy + hyena-energy-gain-from-eating)
     ]
   ]
 end
 
-to antelope-eat-procedure
+to impala-eat-procedure
   ;; check to make sure there is grass here
   if ( grass-amount > 0 ) [
     ;; increment the sheep's energy
@@ -135,13 +173,13 @@ to antelope-eat-procedure
   ]
 end
 
-to rabbit-eat-procedure
+to antelope-eat-procedure
   ;; check to make sure there is grass here
   if ( grass-amount > 0 ) [
     ;; increment the sheep's energy
     set energy energy + (energy-gain-from-grass * grass-units-eaten-per-eat)
     ;; decrement the grass
-    set grass-amount grass-amount - grass-units-eaten-for-rabbit
+    set grass-amount grass-amount - grass-units-eaten-for-impala
     recolor-grass
   ]
 end
@@ -158,8 +196,8 @@ end
 to regrow-grass
   ask patches [
     set grass-amount grass-amount + grass-regrowth-rate
-    if grass-amount > 10.0 [
-      set grass-amount 10.0
+    if grass-amount > 15.0 [
+      set grass-amount 15.0
     ]
     recolor-grass
   ]
@@ -169,7 +207,7 @@ to create-animals ;; creates the animals in the setup procedure
   create-lions 20 [
     setxy random-xcor random-ycor
     set color red
-    set shape "cow skull"
+    set shape "wolf 4"
     set size 2.2
     set energy 400
     set preference-number 2
@@ -179,10 +217,10 @@ to create-animals ;; creates the animals in the setup procedure
     set color brown
     set shape "wolf"
     set size 2
-    set energy 125
+    set energy 100
     set preference-number 1
   ]
-  create-antelopes 100 [
+  create-impalas 100 [
     setxy random-xcor random-ycor
     set color grey
     set shape "sheep"
@@ -190,7 +228,7 @@ to create-animals ;; creates the animals in the setup procedure
     set energy 100
     set preference-number 0
   ]
-  create-rabbits 200 [
+  create-antelopes 200 [
     setxy random-xcor random-ycor
     set color white
     set size 0.75
@@ -202,11 +240,11 @@ end
 to reproduce
   if breed = lions [ lion-reproduce-procedure ]
   if breed = hyenas [ reproduce-regular ]
+  if breed = impalas [ reproduce-regular ]
   if breed = antelopes [ reproduce-regular ]
-  if breed = rabbits [ reproduce-regular ]
 end
 
-to rabbit-reproduce  ;; all animals have the same reproduction
+to antelope-reproduce  ;; all animals have the same reproduction
   if energy > 130 [
     set energy energy - 40  ;; reproduction transfers energy
     hatch 1 [ set energy 70 ] ;; to the new agent
@@ -230,10 +268,10 @@ end
 to report-energy
   set lion-energy 0
   set hyena-energy 0
-  set antelope-energy 0
+  set impala-energy 0
   ask lions [set lion-energy (lion-energy + energy)]
   ask hyenas [set hyena-energy (hyena-energy + energy)]
-  ask antelopes [set antelope-energy (antelope-energy + energy)]
+  ask impalas [set impala-energy (impala-energy + energy)]
 end
 
 to kill-lions
@@ -268,10 +306,10 @@ ticks
 30.0
 
 BUTTON
-53
-86
-116
-119
+36
+16
+99
+49
 NIL
 setup
 NIL
@@ -285,10 +323,10 @@ NIL
 1
 
 BUTTON
-52
-174
-115
-207
+121
+15
+184
+48
 NIL
 go
 T
@@ -302,10 +340,10 @@ NIL
 1
 
 PLOT
-23
-474
-223
-624
+5
+293
+205
+443
 energy plot
 ticks
 energy
@@ -317,15 +355,15 @@ true
 false
 "" ""
 PENS
-"_1_1_1_1_1_1_1" 1.0 0 -2674135 true "" "plot lion-energy"
-"_1_1_1_1_1_1_1" 1.0 0 -8431303 true "" "plot hyena-energy"
+"_1_1_1_1_1_1_1_1_1_1_1_1_1_1" 1.0 0 -2674135 true "" "plot lion-energy"
+"_1_1_1_1_1_1_1_1_1_1_1_1_1_1" 1.0 0 -8431303 true "" "plot hyena-energy"
 "pen-2" 1.0 0 -1184463 true "" "plot antelope-energy"
 
 SLIDER
-285
-717
-457
-750
+516
+583
+688
+616
 movement-cost
 movement-cost
 0
@@ -337,10 +375,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-285
-790
-457
-823
+516
+657
+688
+690
 grass-regrowth-rate
 grass-regrowth-rate
 0
@@ -352,10 +390,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-285
-676
-471
-709
+516
+542
+702
+575
 energy-gain-from-grass
 energy-gain-from-grass
 0
@@ -367,10 +405,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-286
-754
-480
-787
+517
+620
+711
+653
 grass-units-eaten-per-eat
 grass-units-eaten-per-eat
 0
@@ -382,10 +420,10 @@ NIL
 HORIZONTAL
 
 PLOT
-234
-474
-434
-624
+5
+137
+205
+287
 population
 NIL
 NIL
@@ -399,34 +437,34 @@ false
 PENS
 "default" 1.0 0 -8431303 true "" "plot count hyenas"
 "pen-1" 1.0 0 -2674135 true "" "plot count lions"
-"pen-2" 1.0 0 -1184463 true "" "plot count rabbits"
-"pen-3" 1.0 0 -7500403 true "" "plot count antelopes"
+"pen-2" 1.0 0 -1184463 true "" "plot count antelopes"
+"pen-3" 1.0 0 -7500403 true "" "plot count impalas"
 
 SLIDER
 17
-738
+577
 226
-771
+610
 lion-energy-gain-from-eating
 lion-energy-gain-from-eating
 0
 250
-80.0
+100.0
 10
 1
 NIL
 HORIZONTAL
 
 SLIDER
-697
-442
-922
+250
+541
 475
+574
 hyena-energy-gain-from-eating
 hyena-energy-gain-from-eating
 0
 200
-80.0
+90.0
 10
 1
 NIL
@@ -434,9 +472,9 @@ HORIZONTAL
 
 SLIDER
 17
-774
+613
 189
-807
+646
 lion-reproduction-cost
 lion-reproduction-cost
 0
@@ -449,26 +487,26 @@ HORIZONTAL
 
 SLIDER
 17
-662
+501
 217
-695
+534
 lion-reproduction-threshold
 lion-reproduction-threshold
 0
 200
-150.0
+200.0
 1
 1
 NIL
 HORIZONTAL
 
 BUTTON
+56
 54
-847
-159
-880
+161
+87
 create 5 lions
-create-lions 5[\n    setxy random-xcor random-ycor\n    set color red\n    set shape \"cow skull\"\n    set size 2.2\n    set energy 400\n    set preference-number 2\n  ]
+create-lions 5[\n    setxy random-xcor random-ycor\n    set color red\n    set shape \"wolf 4\"\n    set size 2.2\n    set energy 400\n    set preference-number 2\n  ]
 NIL
 1
 T
@@ -481,9 +519,9 @@ NIL
 
 SLIDER
 17
-699
+538
 189
-732
+571
 preference-threshold
 preference-threshold
 0
@@ -496,41 +534,26 @@ HORIZONTAL
 
 SLIDER
 18
-810
+649
 190
-843
+682
 lion-movement-cost
 lion-movement-cost
 0
 25
-13.0
+17.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-490
-567
-662
-600
-lion-movement-cost
-lion-movement-cost
-0
-20
-13.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-496
-758
-701
-791
-grass-units-eaten-for-rabbit
-grass-units-eaten-for-rabbit
+516
+502
+724
+535
+grass-units-eaten-for-impala
+grass-units-eaten-for-impala
 0
 5
 1.0
@@ -540,25 +563,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-696
-481
-870
-514
+250
+581
+424
+614
 hyena-movement-cost
 hyena-movement-cost
 0
 20
-5.0
+13.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-558
-642
-813
-675
+250
+620
+505
+653
 random-hyena-movement-probability
 random-hyena-movement-probability
 0
@@ -570,27 +593,27 @@ NIL
 HORIZONTAL
 
 SLIDER
-694
-402
-866
-435
+252
+501
+424
+534
 pack-radius
 pack-radius
 0
 30
-11.0
+7.0
 1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-189
-847
-317
-880
+42
+95
+170
+128
 create 10 hyenas
-create-hyenas 10[\n    setxy random-xcor random-ycor\n    set color brown\n    set shape \"wolf\"\n    set size 2.2\n    set energy 400\n    set preference-number 2\n  ]
+create-hyenas 10[\n    setxy random-xcor random-ycor\n    set color brown\n    set shape \"wolf\"\n    set size 2.2\n    set energy 100\n    set preference-number 2\n  ]
 NIL
 1
 T
@@ -600,6 +623,47 @@ NIL
 NIL
 NIL
 1
+
+TEXTBOX
+58
+471
+213
+502
+Lion Parameters
+14
+15.0
+1
+
+TEXTBOX
+258
+469
+395
+488
+Hyena Parameters
+14
+34.0
+1
+
+TEXTBOX
+538
+461
+709
+498
+Impala Parameters (Grey)\nAntelope Parameters (White)
+12
+0.0
+1
+
+SWITCH
+18
+687
+197
+720
+preference-threshold?
+preference-threshold?
+1
+1
+-1000
 
 @#$#@#$#@
 ## Model changes from previous
@@ -916,6 +980,18 @@ false
 Polygon -16777216 true false 253 133 245 131 245 133
 Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
 Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
+
+wolf 4
+false
+0
+Polygon -7500403 true true 105 75 105 45 45 0 30 45 45 60 60 90
+Polygon -7500403 true true 45 165 30 135 45 120 15 105 60 75 105 60 180 60 240 75 285 105 255 120 270 135 255 165 270 180 255 195 255 210 240 195 195 225 210 255 180 300 120 300 90 255 105 225 60 195 45 210 45 195 30 180
+Polygon -16777216 true false 120 300 135 285 120 270 120 255 180 255 180 270 165 285 180 300
+Polygon -16777216 true false 240 135 180 165 180 135
+Polygon -16777216 true false 60 135 120 165 120 135
+Polygon -7500403 true true 195 75 195 45 255 0 270 45 255 60 240 90
+Polygon -16777216 true false 225 75 210 60 210 45 255 15 255 45 225 60
+Polygon -16777216 true false 75 75 90 60 90 45 45 15 45 45 75 60
 
 x
 false
